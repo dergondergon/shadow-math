@@ -1,0 +1,831 @@
+=<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vaiiss — Full Math Engine</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(circle at 20% 20%, #1e1b4b, #0f0c29 60%),
+                radial-gradient(circle at 80% 80%, #312e81, #0f0c29 60%);
+    color: #e5e7eb;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+  .app {
+    width: 100%;
+    max-width: 820px;
+    background: rgba(20, 20, 40, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid #2a2a4a;
+    border-radius: 20px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(74, 222, 128, 0.08);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    padding: 16px 22px;
+    background: linear-gradient(90deg, #16213e, #1a1a3e);
+    border-bottom: 1px solid #2a2a4a;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .dot {
+    width: 10px; height: 10px;
+    background: #4ade80;
+    border-radius: 50%;
+    box-shadow: 0 0 12px #4ade80;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+  header h1 { font-size: 16px; font-weight: 600; }
+  header .badge {
+    margin-left: auto;
+    font-size: 11px;
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.1);
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+  }
+  .tabs {
+    display: flex;
+    background: #131328;
+    border-bottom: 1px solid #2a2a4a;
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 12px 14px;
+    font-size: 13px;
+    color: #888;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: 0.2s;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .tab:hover { color: #ccc; background: rgba(255,255,255,0.02); }
+  .tab.active {
+    color: #4ade80;
+    border-bottom-color: #4ade80;
+    background: rgba(74, 222, 128, 0.05);
+  }
+  .panel { display: none; padding: 20px; }
+  .panel.active { display: block; }
+
+  .display {
+    width: 100%;
+    padding: 16px 18px;
+    font-size: 26px;
+    text-align: right;
+    background: #0a0a1a;
+    color: #fff;
+    border: 1px solid #2a2a4a;
+    border-radius: 12px;
+    font-family: "SF Mono", Consolas, monospace;
+    margin-bottom: 6px;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .history {
+    font-size: 12px;
+    color: #666;
+    text-align: right;
+    padding: 0 8px 12px;
+    min-height: 18px;
+    font-family: monospace;
+  }
+  .buttons {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 6px;
+  }
+  button {
+    padding: 14px 6px;
+    font-size: 14px;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    background: #22223c;
+    color: #e5e7eb;
+    transition: all 0.15s;
+    font-family: inherit;
+    font-weight: 500;
+  }
+  button:hover { background: #2e2e50; transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  .op { background: #2d3b6b; color: #93c5fd; }
+  .op:hover { background: #3a4d8a; }
+  .fn { background: #3b2f5c; color: #c4b5fd; font-size: 12px; }
+  .fn:hover { background: #4a3c75; }
+  .trig { background: #4a2f5c; color: #f0abfc; font-size: 12px; }
+  .trig:hover { background: #5a3d70; }
+  .eq {
+    background: linear-gradient(135deg, #4ade80, #22c55e);
+    color: #0a1a0a;
+    font-weight: 700;
+    grid-column: span 2;
+  }
+  .eq:hover { background: linear-gradient(135deg, #22c55e, #16a34a); }
+  .clear { background: #7f1d1d; color: #fca5a5; grid-column: span 2; }
+  .clear:hover { background: #991b1b; }
+
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    padding: 11px 13px;
+    background: #0a0a1a;
+    border: 1px solid #2a2a4a;
+    border-radius: 10px;
+    color: #e5e7eb;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+  }
+  .field textarea { font-family: monospace; resize: vertical; min-height: 80px; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: #4ade80; }
+  .row { display: flex; gap: 10px; }
+  .row .field { flex: 1; }
+  .btn {
+    padding: 11px 22px;
+    background: #3b82f6;
+    color: white;
+    font-weight: 600;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 6px;
+  }
+  .btn:hover { background: #2563eb; }
+  .result {
+    margin-top: 14px;
+    padding: 14px;
+    background: #0a0a1a;
+    border: 1px solid #2a2a4a;
+    border-left: 3px solid #4ade80;
+    border-radius: 10px;
+    font-size: 15px;
+    color: #4ade80;
+    font-family: monospace;
+    min-height: 24px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .hint { font-size: 12px; color: #666; margin-top: 6px; line-height: 1.5; }
+  .tape-item {
+    padding: 10px 14px;
+    background: #0a0a1a;
+    border-left: 3px solid #3b82f6;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-family: monospace;
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .tape-item .expr { color: #888; }
+  .tape-item .ans { color: #4ade80; font-weight: 600; }
+  .empty { color: #555; font-style: italic; text-align: center; padding: 30px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <div class="dot"></div>
+    <h1>Vaiiss — Full Math Engine</h1>
+    <span class="badge">All Equations · Offline</span>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab(event, 'calc')">Calculator</div>
+    <div class="tab" onclick="switchTab(event, 'trig')">Trigonometry</div>
+    <div class="tab" onclick="switchTab(event, 'algebra')">Algebra</div>
+    <div class="tab" onclick="switchTab(event, 'calculus')">Calculus</div>
+    <div class="tab" onclick="switchTab(event, 'stats')">Statistics</div>
+    <div class="tab" onclick="switchTab(event, 'matrix')">Matrix</div>
+    <div class="tab" onclick="switchTab(event, 'convert')">Converter</div>
+    <div class="tab" onclick="switchTab(event, 'date')">Date</div>
+    <div class="tab" onclick="switchTab(event, 'tape')">History</div>
+  </div>
+
+  <!-- CALCULATOR -->
+  <div class="panel active" id="calc">
+    <div class="display" id="display">0</div>
+    <div class="history" id="history"></div>
+    <div class="buttons">
+      <button class="fn" onclick="insert('(')">(</button>
+      <button class="fn" onclick="insert(')')">)</button>
+      <button class="fn" onclick="insert('sqrt(')">√</button>
+      <button class="fn" onclick="insert('cbrt(')">∛</button>
+      <button class="fn" onclick="insert('^')">x^y</button>
+      <button class="fn" onclick="insert('!')">n!</button>
+
+      <button class="trig" onclick="insert('sin(')">sin</button>
+      <button class="trig" onclick="insert('cos(')">cos</button>
+      <button class="trig" onclick="insert('tan(')">tan</button>
+      <button class="trig" onclick="insert('asin(')">sin⁻¹</button>
+      <button class="trig" onclick="insert('acos(')">cos⁻¹</button>
+      <button class="trig" onclick="insert('atan(')">tan⁻¹</button>
+
+      <button class="fn" onclick="insert('log(')">log</button>
+      <button class="fn" onclick="insert('ln(')">ln</button>
+      <button class="fn" onclick="insert('exp(')">e^x</button>
+      <button class="fn" onclick="insert('abs(')">|x|</button>
+      <button class="fn" onclick="insert('floor(')">⌊x⌋</button>
+      <button class="fn" onclick="insert('ceil(')">⌈x⌉</button>
+
+      <button class="fn" onclick="insert('pi')">π</button>
+      <button class="fn" onclick="insert('e')">e</button>
+      <button class="fn" onclick="insert('phi')">φ</button>
+      <button class="fn" onclick="insert('random()')">rand</button>
+      <button class="fn" onclick="insert('round(')">round</button>
+      <button class="fn" onclick="insert('%')">%</button>
+
+      <button onclick="insert('7')">7</button>
+      <button onclick="insert('8')">8</button>
+      <button onclick="insert('9')">9</button>
+      <button class="op" onclick="insert('/')">÷</button>
+      <button class="op" onclick="insert('*')">×</button>
+      <button class="fn" onclick="backspace()">⌫</button>
+
+      <button onclick="insert('4')">4</button>
+      <button onclick="insert('5')">5</button>
+      <button onclick="insert('6')">6</button>
+      <button class="op" onclick="insert('-')">−</button>
+      <button class="op" onclick="insert('+')">+</button>
+      <button class="clear" onclick="clearAll()">Clear</button>
+
+      <button onclick="insert('1')">1</button>
+      <button onclick="insert('2')">2</button>
+      <button onclick="insert('3')">3</button>
+      <button onclick="insert('0')">0</button>
+      <button onclick="insert('.')">.</button>
+      <button class="eq" onclick="calculate()">=</button>
+    </div>
+  </div>
+
+  <!-- TRIGONOMETRY -->
+  <div class="panel" id="trig">
+    <div class="row">
+      <div class="field">
+        <label>Angle</label>
+        <input type="number" id="trigAngle" value="30" step="any">
+      </div>
+      <div class="field">
+        <label>Unit</label>
+        <select id="trigUnit">
+          <option value="deg">Degrees</option>
+          <option value="rad">Radians</option>
+          <option value="grad">Gradians</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" onclick="calcTrig()">Calculate All</button>
+    <div class="result" id="trigResult"></div>
+    <div class="hint">
+      Shows: sin, cos, tan, csc, sec, cot, sinh, cosh, tanh, inverse functions, and the unit circle values.
+    </div>
+  </div>
+
+  <!-- ALGEBRA -->
+  <div class="panel" id="algebra">
+    <div class="grid-2">
+      <div>
+        <h3 style="font-size:14px;color:#4ade80;margin-bottom:10px;">Quadratic: ax² + bx + c = 0</h3>
+        <div class="grid-3">
+          <div class="field"><label>a</label><input type="number" id="qa" value="1"></div>
+          <div class="field"><label>b</label><input type="number" id="qb" value="-3"></div>
+          <div class="field"><label>c</label><input type="number" id="qc" value="2"></div>
+        </div>
+        <button class="btn" onclick="solveQuadratic()">Solve</button>
+      </div>
+      <div>
+        <h3 style="font-size:14px;color:#4ade80;margin-bottom:10px;">Linear: ax + b = 0</h3>
+        <div class="grid-2">
+          <div class="field"><label>a</label><input type="number" id="la" value="2"></div>
+          <div class="field"><label>b</label><input type="number" id="lb" value="-8"></div>
+        </div>
+        <button class="btn" onclick="solveLinear()">Solve</button>
+      </div>
+    </div>
+    <div class="result" id="algResult"></div>
+    <div class="field" style="margin-top:18px;">
+      <label>Simplify / evaluate expression</label>
+      <input type="text" id="exprInput" placeholder="e.g. 2*(3+4)^2 - sqrt(16)">
+      <div class="hint">Supports: + - * / ^ (), sin, cos, tan, log, ln, sqrt, cbrt, abs, pi, e, factorial (!)</div>
+    </div>
+    <button class="btn" onclick="evalExpr()">Evaluate</button>
+  </div>
+
+  <!-- CALCULUS -->
+  <div class="panel" id="calculus">
+    <div class="field">
+      <label>Function f(x) — use x as variable</label>
+      <input type="text" id="fx" value="x^3 - 2*x + 1">
+      <div class="hint">Examples: x^2, sin(x), e^x, ln(x), x^3 - 5*x + 2</div>
+    </div>
+    <div class="row">
+      <div class="field"><label>a (start)</label><input type="number" id="ca" value="0" step="any"></div>
+      <div class="field"><label>b (end)</label><input type="number" id="cb" value="2" step="any"></div>
+      <div class="field"><label>At x =</label><input type="number" id="cx" value="1" step="any"></div>
+    </div>
+    <div class="grid-3">
+      <button class="btn" onclick="derivative()">Derivative</button>
+      <button class="btn" onclick="integrate()">Integral</button>
+      <button class="btn" onclick="limitAt()">Limit</button>
+    </div>
+    <div class="result" id="calcResult"></div>
+    <div class="hint">
+      Derivative and limit are numeric approximations. Integral uses Simpson's rule over [a, b].
+    </div>
+  </div>
+
+  <!-- STATISTICS -->
+  <div class="panel" id="stats">
+    <div class="field">
+      <label>Data (comma or space separated)</label>
+      <textarea id="statsData">1, 2, 3, 4, 5, 6, 7, 8, 9, 10</textarea>
+    </div>
+    <button class="btn" onclick="calcStats()">Calculate</button>
+    <div class="result" id="statsResult"></div>
+  </div>
+
+  <!-- MATRIX -->
+  <div class="panel" id="matrix">
+    <h3 style="font-size:14px;color:#4ade80;margin-bottom:10px;">Matrix A</h3>
+    <div class="field"><textarea id="matA" placeholder="1 2
+3 4"></textarea></div>
+    <h3 style="font-size:14px;color:#4ade80;margin:10px 0;">Matrix B (for A+B, A×B)</h3>
+    <div class="field"><textarea id="matB" placeholder="5 6
+7 8"></textarea></div>
+    <div class="grid-3">
+      <button class="btn" onclick="matAdd()">A + B</button>
+      <button class="btn" onclick="matMul()">A × B</button>
+      <button class="btn" onclick="matDet()">det(A)</button>
+    </div>
+    <div class="result" id="matResult"></div>
+  </div>
+
+  <!-- CONVERTER -->
+  <div class="panel" id="convert">
+    <div class="field">
+      <label>Value</label>
+      <input type="number" id="convValue" value="1" oninput="doConvert()">
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>From</label>
+        <select id="convFrom" onchange="doConvert()">
+          <option value="m">Meters</option>
+          <option value="km">Kilometers</option>
+          <option value="cm">Centimeters</option>
+          <option value="mm">Millimeters</option>
+          <option value="mi">Miles</option>
+          <option value="ft">Feet</option>
+          <option value="in">Inches</option>
+          <option value="kg">Kilograms</option>
+          <option value="g">Grams</option>
+          <option value="lb">Pounds</option>
+          <option value="oz">Ounces</option>
+          <option value="l">Liters</option>
+          <option value="ml">Milliliters</option>
+          <option value="gal">Gallons (US)</option>
+          <option value="c">Celsius</option>
+          <option value="f">Fahrenheit</option>
+          <option value="k">Kelvin</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>To</label>
+        <select id="convTo" onchange="doConvert()">
+          <option value="km">Kilometers</option>
+          <option value="m">Meters</option>
+          <option value="cm">Centimeters</option>
+          <option value="mm">Millimeters</option>
+          <option value="mi">Miles</option>
+          <option value="ft">Feet</option>
+          <option value="in">Inches</option>
+          <option value="g">Grams</option>
+          <option value="kg">Kilograms</option>
+          <option value="lb">Pounds</option>
+          <option value="oz">Ounces</option>
+          <option value="ml">Milliliters</option>
+          <option value="l">Liters</option>
+          <option value="gal">Gallons (US)</option>
+          <option value="f">Fahrenheit</option>
+          <option value="c">Celsius</option>
+          <option value="k">Kelvin</option>
+        </select>
+      </div>
+    </div>
+    <div class="result" id="convResult"></div>
+  </div>
+
+  <!-- DATE -->
+  <div class="panel" id="date">
+    <div class="field">
+      <label>Enter a date (YYYY-MM-DD)</label>
+      <input type="date" id="dateInput" oninput="calcDate()">
+    </div>
+    <div class="result" id="dateResult">Pick a date to see info.</div>
+    <h3 style="font-size:14px;color:#4ade80;margin:16px 0 10px;">Days between two dates</h3>
+    <div class="row">
+      <div class="field"><label>Start</label><input type="date" id="dateA"></div>
+      <div class="field"><label>End</label><input type="date" id="dateB"></div>
+    </div>
+    <button class="btn" onclick="daysBetween()">Calculate</button>
+    <div class="result" id="daysBetweenResult"></div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="panel" id="tape">
+    <div id="tapeList"><div class="empty">No calculations yet.</div></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Vaiiss — Full Math Engine
+   ============================================================ */
+
+const display = document.getElementById('display');
+const historyEl = document.getElementById('history');
+let historyTape = [];
+
+/* ---------- SAFE EXPRESSION EVALUATOR ---------- */
+function safeEval(expr, xValue) {
+  let e = String(expr)
+    .replace(/×/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/−/g, '-')
+    .replace(/\bpi\b/g, 'Math.PI')
+    .replace(/\bphi\b/g, '((1+Math.sqrt(5))/2)')
+    .replace(/\be\b/g, 'Math.E')
+    .replace(/\^/g, '**')
+    .replace(/\bsqrt\(/g, 'Math.sqrt(')
+    .replace(/\bcbrt\(/g, 'Math.cbrt(')
+    .replace(/\blog\(/g, 'Math.log10(')
+    .replace(/\bln\(/g, 'Math.log(')
+    .replace(/\bexp\(/g, 'Math.exp(')
+    .replace(/\babs\(/g, 'Math.abs(')
+    .replace(/\bfloor\(/g, 'Math.floor(')
+    .replace(/\bceil\(/g, 'Math.ceil(')
+    .replace(/\bround\(/g, 'Math.round(')
+    .replace(/\bsin\(/g, 'Math.sin(')
+    .replace(/\bcos\(/g, 'Math.cos(')
+    .replace(/\btan\(/g, 'Math.tan(')
+    .replace(/\basin\(/g, 'Math.asin(')
+    .replace(/\bacos\(/g, 'Math.acos(')
+    .replace(/\batan\(/g, 'Math.atan(')
+    .replace(/\bsinh\(/g, 'Math.sinh(')
+    .replace(/\bcosh\(/g, 'Math.cosh(')
+    .replace(/\btanh\(/g, 'Math.tanh(')
+    .replace(/\brandom\(\)/g, 'Math.random()');
+
+  e = e.replace(/(\d+(\.\d+)?)!/g, 'factorial($1)');
+
+  if (xValue !== undefined) {
+    e = e.replace(/\bx\b/g, '(' + xValue + ')');
+  }
+
+  if (!/^[0-9+\-*/().\s%MathsqrtcbrtloglnexpabsfloorceilroundsincostanasinacostansinhcoshtanhrandomfactorialpiPIEe,]*$/.test(e)) {
+    throw new Error('Invalid characters in expression');
+  }
+
+  return Function('"use strict"; return (' + e + ')')();
+}
+
+function factorial(n) {
+  n = Number(n);
+  if (n < 0 || !Number.isInteger(n)) return NaN;
+  if (n > 170) return Infinity;
+  let r = 1;
+  for (let i = 2; i <= n; i++) r *= i;
+  return r;
+}
+
+/* ---------- CALCULATOR ---------- */
+function insert(v) {
+  if (display.textContent === '0' && !isNaN(v) && v !== '.') display.textContent = v;
+  else display.textContent += v;
+}
+function backspace() { display.textContent = display.textContent.slice(0, -1) || '0'; }
+function clearAll() { display.textContent = '0'; historyEl.textContent = ''; }
+function calculate() {
+  const expr = display.textContent;
+  try {
+    let result = safeEval(expr);
+    if (typeof result !== 'number' || !isFinite(result)) throw new Error('Math error');
+    result = Math.round(result * 1e12) / 1e12;
+    historyEl.textContent = expr + ' =';
+    display.textContent = String(result);
+    historyTape.unshift({ expr, ans: String(result) });
+    renderTape();
+  } catch (err) { display.textContent = 'Error'; }
+}
+
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('calc').classList.contains('active')) return;
+  if (/^[0-9.+\-*/()%!^]$/.test(e.key)) insert(e.key);
+  else if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); calculate(); }
+  else if (e.key === 'Backspace') { e.preventDefault(); backspace(); }
+  else if (e.key === 'Escape') clearAll();
+});
+
+/* ---------- TRIGONOMETRY ---------- */
+function toRad(angle, unit) {
+  if (unit === 'deg') return angle * Math.PI / 180;
+  if (unit === 'grad') return angle * Math.PI / 200;
+  return angle;
+}
+function calcTrig() {
+  const angle = parseFloat(document.getElementById('trigAngle').value);
+  const unit = document.getElementById('trigUnit').value;
+  const out = document.getElementById('trigResult');
+  if (isNaN(angle)) { out.textContent = 'Enter a number'; return; }
+  const r = toRad(angle, unit);
+  const s = Math.sin(r), c = Math.cos(r), t = Math.tan(r);
+  const lines = [
+    `Angle: ${angle} ${unit}`,
+    `Radians: ${r.toFixed(6)}`,
+    `Degrees: ${(r * 180 / Math.PI).toFixed(6)}`,
+    ``,
+    `sin = ${s.toFixed(8)}`,
+    `cos = ${c.toFixed(8)}`,
+    `tan = ${t.toFixed(8)}`,
+    `csc = ${(1/s).toFixed(8)}`,
+    `sec = ${(1/c).toFixed(8)}`,
+    `cot = ${(1/t).toFixed(8)}`,
+    ``,
+    `sinh = ${Math.sinh(r).toFixed(8)}`,
+    `cosh = ${Math.cosh(r).toFixed(8)}`,
+    `tanh = ${Math.tanh(r).toFixed(8)}`,
+    ``,
+    `asin(sin) = ${Math.asin(s).toFixed(6)} rad`,
+    `acos(cos) = ${Math.acos(c).toFixed(6)} rad`,
+    `atan(tan) = ${Math.atan(t).toFixed(6)} rad`
+  ];
+  out.textContent = lines.join('\n');
+}
+
+/* ---------- ALGEBRA ---------- */
+function solveQuadratic() {
+  const a = parseFloat(document.getElementById('qa').value);
+  const b = parseFloat(document.getElementById('qb').value);
+  const c = parseFloat(document.getElementById('qc').value);
+  const out = document.getElementById('algResult');
+  if (a === 0) { out.textContent = 'a cannot be 0 (use Linear solver).'; return; }
+  const disc = b*b - 4*a*c;
+  let text = `Discriminant Δ = ${disc}\n\n`;
+  if (disc > 0) {
+    const x1 = (-b + Math.sqrt(disc)) / (2*a);
+    const x2 = (-b - Math.sqrt(disc)) / (2*a);
+    text += `Two real roots:\nx₁ = ${x1}\nx₂ = ${x2}`;
+  } else if (disc === 0) {
+    text += `One real root:\nx = ${-b / (2*a)}`;
+  } else {
+    const re = -b / (2*a);
+    const im = Math.sqrt(-disc) / (2*a);
+    text += `Two complex roots:\nx₁ = ${re} + ${im}i\nx₂ = ${re} - ${im}i`;
+  }
+  text += `\n\nVertex: x = ${-b/(2*a)}, y = ${c - b*b/(4*a)}`;
+  out.textContent = text;
+}
+function solveLinear() {
+  const a = parseFloat(document.getElementById('la').value);
+  const b = parseFloat(document.getElementById('lb').value);
+  const out = document.getElementById('algResult');
+  if (a === 0) { out.textContent = b === 0 ? 'Infinite solutions' : 'No solution'; return; }
+  out.textContent = `x = ${-b / a}`;
+}
+function evalExpr() {
+  const e = document.getElementById('exprInput').value;
+  const out = document.getElementById('algResult');
+  try { out.textContent = '= ' + safeEval(e); }
+  catch (err) { out.textContent = 'Error: ' + err.message; }
+}
+
+/* ---------- CALCULUS ---------- */
+function f(x) {
+  const expr = document.getElementById('fx').value;
+  return safeEval(expr, x);
+}
+function derivative() {
+  const x = parseFloat(document.getElementById('cx').value);
+  const h = 1e-6;
+  try {
+    const d = (f(x+h) - f(x-h)) / (2*h);
+    document.getElementById('calcResult').textContent = `f'(${x}) ≈ ${d.toFixed(8)}`;
+  } catch { document.getElementById('calcResult').textContent = 'Error in function'; }
+}
+function integrate() {
+  const a = parseFloat(document.getElementById('ca').value);
+  const b = parseFloat(document.getElementById('cb').value);
+  const n = 1000;
+  const h = (b - a) / n;
+  try {
+    let sum = f(a) + f(b);
+    for (let i = 1; i < n; i++) sum += f(a + i*h) * (i % 2 ? 4 : 2);
+    const result = (h / 3) * sum;
+    document.getElementById('calcResult').textContent = `∫ from ${a} to ${b} ≈ ${result.toFixed(8)}`;
+  } catch { document.getElementById('calcResult').textContent = 'Error in function'; }
+}
+function limitAt() {
+  const x = parseFloat(document.getElementById('cx').value);
+  try {
+    const left = f(x - 1e-6);
+    const right = f(x + 1e-6);
+    document.getElementById('calcResult').textContent = `Limit at x=${x}:\nLeft: ${left.toFixed(8)}\nRight: ${right.toFixed(8)}\n${Math.abs(left-right) < 1e-4 ? 'Limit exists ≈ ' + ((left+right)/2).toFixed(8) : 'Limit may not exist'}`;
+  } catch { document.getElementById('calcResult').textContent = 'Error'; }
+}
+
+/* ---------- STATISTICS ---------- */
+function calcStats() {
+  const raw = document.getElementById('statsData').value;
+  const nums = raw.split(/[,\s]+/).map(Number).filter(n => !isNaN(n));
+  const out = document.getElementById('statsResult');
+  if (nums.length === 0) { out.textContent = 'No valid numbers'; return; }
+  const n = nums.length;
+  const sum = nums.reduce((a,b)=>a+b, 0);
+  const mean = sum / n;
+  const sorted = [...nums].sort((a,b)=>a-b);
+  const median = n % 2 ? sorted[(n-1)/2] : (sorted[n/2-1] + sorted[n/2]) / 2;
+  const variance = nums.reduce((a,b)=>a + (b-mean)**2, 0) / n;
+  const sampleVar = n > 1 ? nums.reduce((a,b)=>a + (b-mean)**2, 0) / (n-1) : 0;
+  const sd = Math.sqrt(variance);
+  const sampleSd = Math.sqrt(sampleVar);
+  const min = sorted[0], max = sorted[n-1];
+  const range = max - min;
+  const q1 = sorted[Math.floor(n*0.25)];
+  const q3 = sorted[Math.floor(n*0.75)];
+  const iqr = q3 - q1;
+  const mode = (() => {
+    const freq = {};
+    nums.forEach(x => freq[x] = (freq[x]||0) + 1);
+    const maxF = Math.max(...Object.values(freq));
+    return maxF === 1 ? 'none' : Object.keys(freq).filter(k => freq[k]===maxF).join(', ');
+  })();
+
+  out.textContent =
+    `Count (n): ${n}\n` +
+    `Sum: ${sum}\n` +
+    `Mean (x̄): ${mean}\n` +
+    `Median: ${median}\n` +
+    `Mode: ${mode}\n` +
+    `Min: ${min}\n` +
+    `Max: ${max}\n` +
+    `Range: ${range}\n` +
+    `Q1: ${q1}\n` +
+    `Q3: ${q3}\n` +
+    `IQR: ${iqr}\n` +
+    `Variance (σ²): ${variance}\n` +
+    `Sample variance (s²): ${sampleVar}\n` +
+    `Std dev (σ): ${sd}\n` +
+    `Sample std dev (s): ${sampleSd}`;
+}
+
+/* ---------- MATRIX ---------- */
+function parseMatrix(text) {
+  return text.trim().split('\n').map(line => line.trim().split(/[\s,]+/).map(Number));
+}
+function matAdd() {
+  try {
+    const A = parseMatrix(document.getElementById('matA').value);
+    const B = parseMatrix(document.getElementById('matB').value);
+    if (A.length !== B.length || A[0].length !== B[0].length) throw 'Size mismatch';
+    const C = A.map((row, i) => row.map((v, j) => v + B[i][j]));
+    document.getElementById('matResult').textContent = C.map(r => r.join('  ')).join('\n');
+  } catch (e) { document.getElementById('matResult').textContent = 'Error: ' + e; }
+}
+function matMul() {
+  try {
+    const A = parseMatrix(document.getElementById('matA').value);
+    const B = parseMatrix(document.getElementById('matB').value);
+    if (A[0].length !== B.length) throw 'Columns of A must equal rows of B';
+    const C = A.map((row, i) =>
+      B[0].map((_, j) => row.reduce((sum, v, k) => sum + v * B[k][j], 0))
+    );
+    document.getElementById('matResult').textContent = C.map(r => r.join('  ')).join('\n');
+  } catch (e) { document.getElementById('matResult').textContent = 'Error: ' + e; }
+}
+function matDet() {
+  try {
+    const A = parseMatrix(document.getElementById('matA').value);
+    const det = (m) => {
+      if (m.length === 1) return m[0][0];
+      if (m.length === 2) return m[0][0]*m[1][1] - m[0][1]*m[1][0];
+      let d = 0;
+      for (let j = 0; j < m.length; j++) {
+        const minor = m.slice(1).map(row => row.filter((_, k) => k !== j));
+        d += (j % 2 ? -1 : 1) * m[0][j] * det(minor);
+      }
+      return d;
+    };
+    document.getElementById('matResult').textContent = 'det(A) = ' + det(A);
+  } catch (e) { document.getElementById('matResult').textContent = 'Error: ' + e; }
+}
+
+/* ---------- CONVERTER ---------- */
+const CONV = {
+  m:{type:'len',toBase:1}, km:{type:'len',toBase:1000}, cm:{type:'len',toBase:0.01},
+  mm:{type:'len',toBase:0.001}, mi:{type:'len',toBase:1609.344},
+  ft:{type:'len',toBase:0.3048}, in:{type:'len',toBase:0.0254},
+  kg:{type:'mass',toBase:1}, g:{type:'mass',toBase:0.001},
+  lb:{type:'mass',toBase:0.45359237}, oz:{type:'mass',toBase:0.028349523125},
+  l:{type:'vol',toBase:1}, ml:{type:'vol',toBase:0.001}, gal:{type:'vol',toBase:3.785411784},
+  c:{type:'temp'}, f:{type:'temp'}, k:{type:'temp'}
+};
+function toC(v, u) { if (u==='c') return v; if (u==='f') return (v-32)*5/9; if (u==='k') return v-273.15; }
+function fromC(c, u) { if (u==='c') return c; if (u==='f') return c*9/5+32; if (u==='k') return c+273.15; }
+function doConvert() {
+  const v = parseFloat(document.getElementById('convValue').value);
+  const from = document.getElementById('convFrom').value;
+  const to = document.getElementById('convTo').value;
+  const out = document.getElementById('convResult');
+  if (isNaN(v)) { out.textContent = 'Enter a number'; return; }
+  const F = CONV[from], T = CONV[to];
+  if (F.type === 'temp' && T.type === 'temp') {
+    const c = toC(v, from);
+    out.textContent = `${v}°${from.toUpperCase()} = ${fromC(c, to).toFixed(4)}°${to.toUpperCase()}`;
+    return;
+  }
+  if (F.type !== T.type) { out.textContent = 'Cannot convert between different unit types'; return; }
+  const r = (v * F.toBase) / T.toBase;
+  out.textContent = `${v} ${from} = ${r.toPrecision(8).replace(/\.?0+$/,'')} ${to}`;
+}
+
+/* ---------- DATE ---------- */
+function calcDate() {
+  const val = document.getElementById('dateInput').value;
+  const out = document.getElementById('dateResult');
+  if (!val) { out.textContent = 'Pick a date to see info.'; return; }
+  const d = new Date(val + 'T00:00:00');
+  const now = new Date();
+  const diffDays = Math.round((d - now) / 86400000);
+  const dayName = d.toLocaleDateString('en-US', { weekday:'long' });
+  const monthName = d.toLocaleDateString('en-US', { month:'long' });
+  const start = new Date(d.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((d - start) / 86400000);
+  const daysInMonth = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  const isLeap = (d.getFullYear()%4===0 && d.getFullYear()%100!==0) || d.getFullYear()%400===0;
+  out.innerHTML =
+    `<div><strong>${dayName}</strong>, ${monthName} ${d.getDate()}, ${d.getFullYear()}</div>` +
+    `<div>Day of year: <strong>${dayOfYear}</strong></div>` +
+    `<div>Days in month: <strong>${daysInMonth}</strong></div>` +
+    `<div>Leap year: <strong>${isLeap ? 'Yes' : 'No'}</strong></div>` +
+    `<div>Days ${diffDays >= 0 ? 'from now' : 'ago'}: <strong>${Math.abs(diffDays)}</strong></div>`;
+}
+function daysBetween() {
+  const a = document.getElementById('dateA').value;
+  const b = document.getElementById('dateB').value;
+  const out = document.getElementById('daysBetweenResult');
+  if (!a || !b) { out.textContent = 'Pick both dates'; return; }
+  const d1 = new Date(a), d2 = new Date(b);
+  const days = Math.round((d2 - d1) / 86400000);
+  const weeks = (days/7).toFixed(2);
+  const months = (days/30.44).toFixed(2);
+  const years = (days/365.25).toFixed(3);
+  out.textContent = `${Math.abs(days)} days\n${weeks} weeks\n${months} months\n${years} years`;
+}
+
+/* ---------- TABS + TAPE ---------- */
+function switchTab(evt, id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  evt.currentTarget.classList.add('active');
+  document.getElementById(id).classList.add('active');
+}
+function renderTape() {
+  const list = document.getElementById('tapeList');
+  if (historyTape.length === 0) { list.innerHTML = '<div class="empty">No calculations yet.</div>'; return; }
+  list.innerHTML = historyTape.map(h =>
+    `<div class="tape-item"><span class="expr">${h.expr}</span><span class="ans">= ${h.ans}</span></div>`
+  ).join('');
+}
+
+/* Init */
+doConvert();
+calcTrig();
+</script>
+
+</body>
+</html>
